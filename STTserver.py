@@ -16,22 +16,24 @@ SERVER_PORT = 12345
 # Initialize AudioToTextRecorder with microphone usage disabled
 recorder = AudioToTextRecorder(use_microphone=False)
 
+# Function to bind the socket with retries
+def bind_socket(sock, address, port, retries=5, delay=5):
+    for _ in range(retries):
+        try:
+            sock.bind((address, port))
+            print(f"Socket successfully bound to {address}:{port}")
+            return
+        except OSError as e:
+            if e.errno == 98:  # Address already in use
+                print("Address already in use, retrying in 5 seconds...")
+                time.sleep(delay)
+            else:
+                raise
+    raise OSError("Could not bind the socket after multiple attempts.")
+
 # Create UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-# Attempt to bind the socket with retries
-for _ in range(5):  # retry 5 times
-    try:
-        sock.bind((SERVER_IP, SERVER_PORT))
-        break
-    except OSError as e:
-        if e.errno == 98:  # Address already in use
-            print("Address already in use, retrying in 5 seconds...")
-            time.sleep(5)
-        else:
-            raise
-else:
-    raise OSError("Could not bind the socket after multiple attempts.")
+bind_socket(sock, SERVER_IP, SERVER_PORT)
 
 def process_text(text):
     print(f"Transcribed text: {text}")
@@ -60,8 +62,8 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
 
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
     try:
+        socketio.run(app, debug=True, host='0.0.0.0', port=5000)
         loop.run_forever()
     except KeyboardInterrupt:
         pass
