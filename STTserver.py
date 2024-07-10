@@ -1,8 +1,9 @@
 import socket
 import asyncio
+import signal
 from flask import Flask
 from flask_socketio import SocketIO
-from RealtimeSTT import AudioToTextRecorder
+from realtime_stt import RealtimeSTT
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -12,7 +13,7 @@ SERVER_IP = '0.0.0.0'
 SERVER_PORT = 12345
 
 # Initialize RealtimeSTT
-stt = AudioToTextRecorder()
+stt = RealtimeSTT()
 
 # Create UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -28,10 +29,23 @@ async def udp_listener():
         if data:
             stt.feed_audio(data)
 
+def cleanup():
+    print("Cleaning up resources...")
+    sock.close()
+    loop.stop()
+    print("Server has been stopped and resources released.")
+
+def handle_signal(signal, frame):
+    asyncio.run_coroutine_threadsafe(cleanup(), loop)
+
 if __name__ == "__main__":
     stt.on_realtime_transcription_update = process_text
     loop = asyncio.get_event_loop()
     loop.create_task(udp_listener())
+
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)
     try:
         loop.run_forever()
