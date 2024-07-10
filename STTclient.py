@@ -4,6 +4,7 @@ import socket
 import websocket
 import threading
 import json
+import get_ip from ip_settings
 
 # Initialize PyAudio
 audio = pyaudio.PyAudio()
@@ -13,9 +14,9 @@ FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 48000
 CHUNK = 960  # 20ms frames
-SERVER_IP = 'your_server_ip'
+SERVER_IP = get_ip() 'your_server_ip'  # Replace with your server's IP
 SERVER_PORT = 1234
-WS_SERVER_URL = 'ws://your_server_ip:5000'
+WS_SERVER_URL = 'ws://'+ get_ip() + ':5000'  # Replace with your WebSocket server URL
 
 # Initialize WebRTC VAD
 vad = webrtcvad.Vad()
@@ -32,7 +33,7 @@ def on_message(ws, message):
 def on_error(ws, error):
     print(f"WebSocket error: {error}")
 
-def on_close(ws):
+def on_close(ws, close_status_code, close_msg):
     print("WebSocket connection closed")
 
 def on_open(ws):
