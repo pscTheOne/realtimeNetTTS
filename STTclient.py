@@ -14,7 +14,7 @@ CHANNELS = 1
 RATE = 16000
 CHUNK = 320  # 20ms frames
 SERVER_IP = 'your_server_ip'
-SERVER_PORT = 12345
+SERVER_PORT = 1234
 WS_SERVER_URL = 'ws://your_server_ip:5000'
 
 # Initialize WebRTC VAD
