@@ -14,7 +14,7 @@ FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 48000
 CHUNK = 960  # 20ms frames
-SERVER_IP = get_ip() 'your_server_ip'  # Replace with your server's IP
+SERVER_IP = get_ip()  # Replace with your server's IP
 SERVER_PORT = 1234
 WS_SERVER_URL = 'ws://'+ get_ip() + ':5000'  # Replace with your WebSocket server URL
 
