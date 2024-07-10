@@ -16,7 +16,10 @@ SERVER_PORT = 12345
 # Initialize AudioToTextRecorder with microphone usage disabled
 recorder = AudioToTextRecorder(use_microphone=False)
 
-# Function to bind the socket with retries
+# Create UDP socket
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+# Attempt to bind the socket with retries
 def bind_socket(sock, address, port, retries=5, delay=5):
     for _ in range(retries):
         try:
@@ -31,8 +34,6 @@ def bind_socket(sock, address, port, retries=5, delay=5):
                 raise
     raise OSError("Could not bind the socket after multiple attempts.")
 
-# Create UDP socket
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 bind_socket(sock, SERVER_IP, SERVER_PORT)
 
 def process_text(text):
@@ -56,17 +57,21 @@ def handle_signal(signal, frame):
 
 if __name__ == "__main__":
     recorder.on_realtime_transcription_update = process_text
-    loop = asyncio.get_event_loop()
-    loop.create_task(udp_listener())
 
+    # Set up signal handlers for graceful shutdown
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
 
+    # Initialize the asyncio event loop
+    loop = asyncio.get_event_loop()
+    loop.create_task(udp_listener())
+
+    # Start the Flask-SocketIO server
     try:
         socketio.run(app, debug=True, host='0.0.0.0', port=5000)
-        loop.run_forever()
     except KeyboardInterrupt:
         pass
     finally:
+        # Clean up resources when the server is stopped
         loop.run_until_complete(asyncio.gather(*asyncio.Task.all_tasks()))
         loop.close()
