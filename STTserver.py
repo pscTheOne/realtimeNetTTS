@@ -3,17 +3,17 @@ import asyncio
 import signal
 from flask import Flask
 from flask_socketio import SocketIO
-from realtime_stt import RealtimeSTT
+from RealtimeSTT import AudioToTextRecorder
 
 app = Flask(__name__)
 socketio = SocketIO(app)
 
 # Server IP and port for UDP listener
 SERVER_IP = '0.0.0.0'
-SERVER_PORT = 12345
+SERVER_PORT = 12346
 
 # Initialize RealtimeSTT
-stt = RealtimeSTT()
+stt = AudioToTextRecorder()
 
 # Create UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
