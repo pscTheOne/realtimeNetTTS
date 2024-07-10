@@ -4,7 +4,7 @@ import socket
 import websocket
 import threading
 import json
-import get_ip from ip_settings
+from ip_settings import get_ip
 
 # Initialize PyAudio
 audio = pyaudio.PyAudio()
