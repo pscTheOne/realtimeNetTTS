@@ -2,7 +2,7 @@ import socket
 import asyncio
 from flask import Flask
 from flask_socketio import SocketIO
-from realtime_stt import RealtimeSTT
+from RealtimeSTT import AudioToTextRecorder
 
 app = Flask(__name__)
 socketio = SocketIO(app)
