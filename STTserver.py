@@ -12,7 +12,7 @@ SERVER_IP = '0.0.0.0'
 SERVER_PORT = 12345
 
 # Initialize RealtimeSTT
-stt = RealtimeSTT()
+stt = AudioToTextRecorder()
 
 # Create UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
