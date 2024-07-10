@@ -11,8 +11,8 @@ audio = pyaudio.PyAudio()
 # Parameters for audio stream
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
-RATE = 16000
-CHUNK = 320  # 20ms frames
+RATE = 48000
+CHUNK = 960  # 20ms frames
 SERVER_IP = 'your_server_ip'
 SERVER_PORT = 1234
 WS_SERVER_URL = 'ws://your_server_ip:5000'
