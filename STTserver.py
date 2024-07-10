@@ -63,10 +63,14 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, handle_signal)
 
     try:
-        socketio.run(app, debug=True, host='0.0.0.0', port=5000, use_reloader=False, threaded=False)
+        socketio.run(app, debug=True, host='0.0.0.0', port=5000, use_reloader=False)
         loop.run_forever()
     except KeyboardInterrupt:
         pass
     finally:
-        loop.run_until_complete(asyncio.gather(*asyncio.Task.all_tasks()))
+        pending = asyncio.all_tasks(loop)
+        for task in pending:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                loop.run_until_complete(task)
         loop.close()
