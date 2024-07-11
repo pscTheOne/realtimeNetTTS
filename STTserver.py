@@ -55,7 +55,10 @@ async def generate_transcriptions():
 
 @app.route('/transcriptions')
 def transcriptions_stream():
-    return Response(generate_transcriptions(), mimetype='text/event-stream')
+    async def stream():
+        async for transcription in generate_transcriptions():
+            yield transcription
+    return Response(stream(), mimetype='text/event-stream')
 
 def cleanup():
     print("Cleaning up resources...")
