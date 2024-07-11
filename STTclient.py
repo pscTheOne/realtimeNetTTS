@@ -4,7 +4,6 @@ import socket
 import websocket
 import threading
 import json
-from ip_settings import get_ip
 
 # Initialize PyAudio
 audio = pyaudio.PyAudio()
@@ -12,11 +11,11 @@ audio = pyaudio.PyAudio()
 # Parameters for audio stream
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
-RATE = 48000
-CHUNK = 960  # 20ms frames
-SERVER_IP = get_ip()  # Replace with your server's IP
-SERVER_PORT = 1234
-WS_SERVER_URL = 'ws://'+ get_ip() + ':5000'  # Replace with your WebSocket server URL
+RATE = 48000  # Updated sample rate
+CHUNK = 960  # 20ms frames for 48000 Hz
+SERVER_IP = 'your_server_ip'
+SERVER_PORT = 12345
+WS_SERVER_URL = 'ws://your_server_ip:5000/socket.io/'
 
 # Initialize WebRTC VAD
 vad = webrtcvad.Vad()
@@ -33,7 +32,7 @@ def on_message(ws, message):
 def on_error(ws, error):
     print(f"WebSocket error: {error}")
 
-def on_close(ws, close_status_code, close_msg):
+def on_close(ws):
     print("WebSocket connection closed")
 
 def on_open(ws):
@@ -53,9 +52,12 @@ ws_thread.start()
 
 # Callback function to process audio stream
 def callback(in_data, frame_count, time_info, status):
-    is_speech = vad.is_speech(in_data, RATE)
-    if is_speech:
-        sock.sendto(in_data, (SERVER_IP, SERVER_PORT))
+    try:
+        is_speech = vad.is_speech(in_data, RATE)
+        if is_speech:
+            sock.sendto(in_data, (SERVER_IP, SERVER_PORT))
+    except webrtcvad.VadError as e:
+        print(f"Error while processing frame: {e}")
     return (in_data, pyaudio.paContinue)
 
 # Open audio stream
