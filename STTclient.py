@@ -1,9 +1,8 @@
 import pyaudio
 import webrtcvad
-import socket
-from websocket import WebSocketApp
+import requests
 import threading
-import json
+from sseclient import SSEClient
 from ip_settings import get_ip
 
 # Initialize PyAudio
@@ -12,56 +11,29 @@ audio = pyaudio.PyAudio()
 # Parameters for audio stream
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
-RATE = 48000  # Updated sample rate
-CHUNK = 960  # 20ms frames for 48000 Hz
+RATE = 48000
+CHUNK = 960
 SERVER_IP = get_ip()
-SERVER_PORT = 12345
-WS_SERVER_URL = f'ws://{SERVER_IP}:5000/socket.io/?EIO=3&transport=websocket'
+SERVER_PORT = 5000
 
 # Initialize WebRTC VAD
 vad = webrtcvad.Vad()
-vad.set_mode(1)  # 0: least aggressive, 3: most aggressive
+vad.set_mode(1)
 
-# Create a UDP socket
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+def send_audio_data(audio_data):
+    requests.post(f'http://{SERVER_IP}:{SERVER_PORT}/send_audio', data=audio_data)
 
-# WebSocket client
-def on_message(ws, message):
-    data = json.loads(message)
-    print(f"Received transcription: {data['text']}")
+def receive_transcriptions():
+    url = f'http://{SERVER_IP}:{SERVER_PORT}/transcriptions'
+    messages = SSEClient(url)
+    for msg in messages:
+        print(f"Transcription: {msg.data}")
 
-def on_error(ws, error):
-    print(f"WebSocket error: {error}")
-
-def on_close(ws, close_status_code, close_msg):
-    print(f"WebSocket connection closed: {close_status_code}, {close_msg}")
-
-def on_open(ws):
-    print("WebSocket connection opened")
-
-ws = WebSocketApp(WS_SERVER_URL,
-                  on_message=on_message,
-                  on_error=on_error,
-                  on_close=on_close)
-ws.on_open = on_open
-
-def run_ws():
-    ws.run_forever()
-
-ws_thread = threading.Thread(target=run_ws)
-ws_thread.start()
-
-# Callback function to process audio stream
 def callback(in_data, frame_count, time_info, status):
-    try:
-        is_speech = vad.is_speech(in_data, RATE)
-        if is_speech:
-            sock.sendto(in_data, (SERVER_IP, SERVER_PORT))
-    except webrtcvad.VadError as e:
-        print(f"Error while processing frame: {e}")
+    if vad.is_speech(in_data, RATE):
+        send_audio_data(in_data)
     return (in_data, pyaudio.paContinue)
 
-# Open audio stream
 stream = audio.open(format=FORMAT,
                     channels=CHANNELS,
                     rate=RATE,
@@ -69,25 +41,21 @@ stream = audio.open(format=FORMAT,
                     frames_per_buffer=CHUNK,
                     stream_callback=callback)
 
-print("Listening...")
+def start_sse_client():
+    receive_transcriptions()
 
-# Start the stream
+sse_thread = threading.Thread(target=start_sse_client)
+sse_thread.start()
+
+print("Listening...")
 stream.start_stream()
 
-# Keep the stream running
 try:
     while True:
         pass
 except KeyboardInterrupt:
     print("Stopping...")
 
-# Stop and close the stream
 stream.stop_stream()
 stream.close()
-
-# Terminate PyAudio
 audio.terminate()
-
-# Close the WebSocket
-ws.close()
-ws_thread.join()
