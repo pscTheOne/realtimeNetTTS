@@ -5,6 +5,8 @@ import threading
 import json
 import wave
 import requests
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from sseclient import SSEClient
 from ip_settings import get_ip
 
@@ -16,6 +18,7 @@ FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 48000  # Updated sample rate
 CHUNK = 960  # 20ms frames for 48000 Hz
+BATCH_SIZE = 5  # Number of chunks to batch together
 SERVER_IP = get_ip()
 SERVER_PORT = 5000
 
@@ -29,10 +32,24 @@ wav_file.setnchannels(CHANNELS)
 wav_file.setsampwidth(audio.get_sample_size(FORMAT))
 wav_file.setframerate(RATE)
 
+audio_buffer = []
+executor = ThreadPoolExecutor(max_workers=1)
+
 def send_audio_data(audio_data):
     url = f'http://{SERVER_IP}:{SERVER_PORT}/send_audio'
     headers = {'Content-Type': 'application/octet-stream'}
-    requests.post(url, headers=headers, data=audio_data)
+    response = requests.post(url, headers=headers, data=audio_data)
+    if response.status_code != 200:
+        print(f"Failed to send audio data: {response.status_code} - {response.text}")
+
+async def async_send_audio_data():
+    loop = asyncio.get_event_loop()
+    while True:
+        if audio_buffer:
+            batch = b''.join(audio_buffer)
+            audio_buffer.clear()
+            await loop.run_in_executor(executor, send_audio_data, batch)
+        await asyncio.sleep(0.1)
 
 def receive_transcriptions():
     url = f'http://{SERVER_IP}:{SERVER_PORT}/transcriptions'
@@ -42,7 +59,7 @@ def receive_transcriptions():
 
 def callback(in_data, frame_count, time_info, status):
     if vad.is_speech(in_data, RATE):
-        send_audio_data(in_data)
+        audio_buffer.append(in_data)
         wav_file.writeframes(in_data)  # Append audio data to WAV file
     return (in_data, pyaudio.paContinue)
 
@@ -58,6 +75,8 @@ def start_sse_client():
 
 sse_thread = threading.Thread(target=start_sse_client)
 sse_thread.start()
+
+asyncio.run(async_send_audio_data())
 
 print("Listening...")
 stream.start_stream()
