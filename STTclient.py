@@ -1,9 +1,9 @@
 import pyaudio
 import webrtcvad
 import socket
-import requests
 import threading
-import time
+import json
+from sseclient import SSEClient
 from ip_settings import get_ip
 
 # Initialize PyAudio
@@ -12,15 +12,14 @@ audio = pyaudio.PyAudio()
 # Parameters for audio stream
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
-RATE = 48000
-CHUNK = 960
+RATE = 48000  # Updated sample rate
+CHUNK = 960  # 20ms frames for 48000 Hz
 SERVER_IP = get_ip()
-SERVER_PORT = 12346  # Changed port
-API_URL = f'http://{SERVER_IP}:5000/get_transcription'
+SERVER_PORT = 12345
 
 # Initialize WebRTC VAD
 vad = webrtcvad.Vad()
-vad.set_mode(1)
+vad.set_mode(1)  # 0: least aggressive, 3: most aggressive
 
 # Create a UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -28,19 +27,17 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 def send_audio_data(audio_data):
     sock.sendto(audio_data, (SERVER_IP, SERVER_PORT))
 
-def get_transcription():
-    response = requests.get(API_URL)
-    if response.status_code == 200:
-        transcription = response.json().get('transcription')
-        if transcription:
-            print(f"Transcription: {transcription}")
+def receive_transcriptions():
+    url = f'http://{SERVER_IP}:5000/transcriptions'
+    messages = SSEClient(url)
+    for msg in messages:
+        print(f"Transcription: {msg.data}")
 
 def callback(in_data, frame_count, time_info, status):
     if vad.is_speech(in_data, RATE):
         send_audio_data(in_data)
     return (in_data, pyaudio.paContinue)
 
-# Open audio stream
 stream = audio.open(format=FORMAT,
                     channels=CHANNELS,
                     rate=RATE,
@@ -48,13 +45,11 @@ stream = audio.open(format=FORMAT,
                     frames_per_buffer=CHUNK,
                     stream_callback=callback)
 
-def polling_transcription():
-    while True:
-        get_transcription()
-        time.sleep(1)
+def start_sse_client():
+    receive_transcriptions()
 
-polling_thread = threading.Thread(target=polling_transcription)
-polling_thread.start()
+sse_thread = threading.Thread(target=start_sse_client)
+sse_thread.start()
 
 print("Listening...")
 stream.start_stream()
@@ -68,4 +63,5 @@ except KeyboardInterrupt:
 stream.stop_stream()
 stream.close()
 audio.terminate()
+
 sock.close()
