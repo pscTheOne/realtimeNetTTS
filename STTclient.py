@@ -65,3 +65,11 @@ stream.start_stream()
 try:
     while True:
         pass
+except KeyboardInterrupt:
+    print("Stopping...")
+
+stream.stop_stream()
+stream.close()
+audio.terminate()
+wav_file.close()
+sock.close()
