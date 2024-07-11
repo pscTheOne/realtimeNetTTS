@@ -1,77 +1,93 @@
+import pyaudio
+import webrtcvad
 import socket
-import asyncio
-import signal
-import time
-from contextlib import suppress
-from flask import Flask
-from flask_socketio import SocketIO
-from RealtimeSTT import AudioToTextRecorder
+from websocket import WebSocketApp
+import threading
+import json
+from ip_settings import get_ip
 
-app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
+# Initialize PyAudio
+audio = pyaudio.PyAudio()
 
-# Server IP and port for UDP listener
-SERVER_IP = '0.0.0.0'
+# Parameters for audio stream
+FORMAT = pyaudio.paInt16
+CHANNELS = 1
+RATE = 48000  # Updated sample rate
+CHUNK = 960  # 20ms frames for 48000 Hz
+SERVER_IP = get_ip()
 SERVER_PORT = 12345
+WS_SERVER_URL = f'ws://{SERVER_IP}:5000/socket.io/?EIO=3&transport=websocket'
 
-# Initialize AudioToTextRecorder with microphone usage disabled
-recorder = AudioToTextRecorder(use_microphone=False)
+# Initialize WebRTC VAD
+vad = webrtcvad.Vad()
+vad.set_mode(1)  # 0: least aggressive, 3: most aggressive
 
-# Create UDP socket
+# Create a UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-def bind_socket(sock, address, port, retries=5, delay=5):
-    for _ in range(retries):
-        try:
-            sock.bind((address, port))
-            print(f"Socket successfully bound to {address}:{port}")
-            return
-        except OSError as e:
-            if e.errno == 98:  # Address already in use
-                print("Address already in use, retrying in 5 seconds...")
-                time.sleep(delay)
-            else:
-                raise
-    raise OSError("Could not bind the socket after multiple attempts.")
+# WebSocket client
+def on_message(ws, message):
+    data = json.loads(message)
+    print(f"Received transcription: {data['text']}")
 
-bind_socket(sock, SERVER_IP, SERVER_PORT)
+def on_error(ws, error):
+    print(f"WebSocket error: {error}")
 
-def process_text(text):
-    print(f"Transcribed text: {text}")
-    socketio.emit('transcription', {'text': text})
+def on_close(ws, close_status_code, close_msg):
+    print(f"WebSocket connection closed: {close_status_code}, {close_msg}")
 
-async def udp_listener():
-    while True:
-        data, addr = sock.recvfrom(1024)
-        if data:
-            recorder.feed_audio(data)
+def on_open(ws):
+    print("WebSocket connection opened")
 
-def cleanup():
-    print("Cleaning up resources...")
-    sock.close()
-    loop.stop()
-    print("Server has been stopped and resources released.")
+ws = WebSocketApp(WS_SERVER_URL,
+                  on_message=on_message,
+                  on_error=on_error,
+                  on_close=on_close)
+ws.on_open = on_open
 
-def handle_signal(signal, frame):
-    asyncio.run_coroutine_threadsafe(cleanup(), loop)
+def run_ws():
+    ws.run_forever()
 
-if __name__ == "__main__":
-    recorder.on_realtime_transcription_update = process_text
-    loop = asyncio.get_event_loop()
-    loop.create_task(udp_listener())
+ws_thread = threading.Thread(target=run_ws)
+ws_thread.start()
 
-    signal.signal(signal.SIGINT, handle_signal)
-    signal.signal(signal.SIGTERM, handle_signal)
-
+# Callback function to process audio stream
+def callback(in_data, frame_count, time_info, status):
     try:
-        socketio.run(app, debug=True, host='0.0.0.0', port=5000, use_reloader=False)
-        loop.run_forever()
-    except KeyboardInterrupt:
+        is_speech = vad.is_speech(in_data, RATE)
+        if is_speech:
+            sock.sendto(in_data, (SERVER_IP, SERVER_PORT))
+    except webrtcvad.VadError as e:
+        print(f"Error while processing frame: {e}")
+    return (in_data, pyaudio.paContinue)
+
+# Open audio stream
+stream = audio.open(format=FORMAT,
+                    channels=CHANNELS,
+                    rate=RATE,
+                    input=True,
+                    frames_per_buffer=CHUNK,
+                    stream_callback=callback)
+
+print("Listening...")
+
+# Start the stream
+stream.start_stream()
+
+# Keep the stream running
+try:
+    while True:
         pass
-    finally:
-        pending = asyncio.all_tasks(loop)
-        for task in pending:
-            task.cancel()
-            with suppress(asyncio.CancelledError):
-                loop.run_until_complete(task)
-        loop.close()
+except KeyboardInterrupt:
+    print("Stopping...")
+
+# Stop and close the stream
+stream.stop_stream()
+stream.close()
+
+# Terminate PyAudio
+audio.terminate()
+
+# Close the WebSocket
+ws.close()
+ws_thread.join()
