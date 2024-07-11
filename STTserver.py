@@ -37,6 +37,7 @@ async def generate_transcriptions():
     while True:
         if transcriptions:
             transcription = transcriptions.pop(0)
+            print(f"data: {transcription}\n\n")
             yield f"data: {transcription}\n\n"
         await asyncio.sleep(1)
 
