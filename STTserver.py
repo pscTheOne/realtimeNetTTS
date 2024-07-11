@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 # Server IP and port for UDP listener
 SERVER_IP = '0.0.0.0'
-SERVER_PORT = 12345
+SERVER_PORT = 12346  # Changed port
 
 # Initialize AudioToTextRecorder with microphone usage disabled
 recorder = AudioToTextRecorder(use_microphone=False)
@@ -23,7 +23,7 @@ def udp_listener():
         data, addr = sock.recvfrom(1024)
         if data:
             recorder.feed_audio(data)
-            transcription = recorder.get_latest_transcription()
+            transcription = recorder.text()
             if transcription:
                 transcriptions.append(transcription)
 
