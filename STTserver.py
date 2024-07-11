@@ -1,7 +1,8 @@
 import socket
 import asyncio
 import signal
-from flask import Flask, Response, request
+from contextlib import suppress
+from flask import Flask, Response
 from flask_socketio import SocketIO
 from RealtimeSTT import AudioToTextRecorder
 
@@ -45,7 +46,7 @@ async def udp_listener():
         if data:
             recorder.feed_audio(data)
 
-def generate_transcriptions():
+async def generate_transcriptions():
     while True:
         if transcriptions:
             transcription = transcriptions.pop(0)
