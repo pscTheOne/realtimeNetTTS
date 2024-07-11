@@ -1,39 +1,87 @@
 import socket
-import threading
-from flask import Flask, jsonify
+import asyncio
+import signal
+from flask import Flask, Response, request
+from flask_socketio import SocketIO
 from RealtimeSTT import AudioToTextRecorder
 
 app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Server IP and port for UDP listener
 SERVER_IP = '0.0.0.0'
-SERVER_PORT = 12346  # Changed port
+SERVER_PORT = 12345
 
 # Initialize AudioToTextRecorder with microphone usage disabled
 recorder = AudioToTextRecorder(use_microphone=False)
+transcriptions = []
 
 # Create UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.bind((SERVER_IP, SERVER_PORT))
 
-transcriptions = []
+def bind_socket(sock, address, port, retries=5, delay=5):
+    for _ in range(retries):
+        try:
+            sock.bind((address, port))
+            print(f"Socket successfully bound to {address}:{port}")
+            return
+        except OSError as e:
+            if e.errno == 98:  # Address already in use
+                print("Address already in use, retrying in 5 seconds...")
+                time.sleep(delay)
+            else:
+                raise
+    raise OSError("Could not bind the socket after multiple attempts.")
 
-def udp_listener():
+bind_socket(sock, SERVER_IP, SERVER_PORT)
+
+def process_text(text):
+    print(f"Transcribed text: {text}")
+    transcriptions.append(text)
+
+async def udp_listener():
     while True:
         data, addr = sock.recvfrom(1024)
         if data:
             recorder.feed_audio(data)
-            transcription = recorder.text()
-            if transcription:
-                transcriptions.append(transcription)
 
-@app.route('/get_transcription', methods=['GET'])
-def get_transcription():
-    if transcriptions:
-        return jsonify({"transcription": transcriptions.pop(0)})
-    return jsonify({"transcription": ""})
+def generate_transcriptions():
+    while True:
+        if transcriptions:
+            transcription = transcriptions.pop(0)
+            yield f"data: {transcription}\n\n"
+        await asyncio.sleep(1)
 
-if __name__ == '__main__':
-    udp_thread = threading.Thread(target=udp_listener)
-    udp_thread.start()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+@app.route('/transcriptions')
+def transcriptions_stream():
+    return Response(generate_transcriptions(), mimetype='text/event-stream')
+
+def cleanup():
+    print("Cleaning up resources...")
+    sock.close()
+    loop.stop()
+    print("Server has been stopped and resources released.")
+
+def handle_signal(signal, frame):
+    asyncio.run_coroutine_threadsafe(cleanup(), loop)
+
+if __name__ == "__main__":
+    recorder.on_realtime_transcription_update = process_text
+    loop = asyncio.get_event_loop()
+    loop.create_task(udp_listener())
+
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
+    try:
+        socketio.run(app, debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        pending = asyncio.all_tasks(loop)
+        for task in pending:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                loop.run_until_complete(task)
+        loop.close()
