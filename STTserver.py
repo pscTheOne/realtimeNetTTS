@@ -2,38 +2,15 @@ import socket
 import asyncio
 import signal
 from contextlib import suppress
-from quart import Quart, Response
+from quart import Quart, request, jsonify
 from RealtimeSTT import AudioToTextRecorder
 import wave
 
 app = Quart(__name__)
 
-# Server IP and port for UDP listener
-SERVER_IP = '0.0.0.0'
-SERVER_PORT = 12345
-
 # Initialize AudioToTextRecorder with microphone usage disabled
 recorder = AudioToTextRecorder(use_microphone=False)
 transcriptions = []
-
-# Create UDP socket
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-def bind_socket(sock, address, port, retries=5, delay=5):
-    for _ in range(retries):
-        try:
-            sock.bind((address, port))
-            print(f"Socket successfully bound to {address}:{port}")
-            return
-        except OSError as e:
-            if e.errno == 98:  # Address already in use
-                print("Address already in use, retrying in 5 seconds...")
-                time.sleep(delay)
-            else:
-                raise
-    raise OSError("Could not bind the socket after multiple attempts.")
-
-bind_socket(sock, SERVER_IP, SERVER_PORT)
 
 # Open a WAV file to append audio data
 wav_file = wave.open("received_audio.wav", 'wb')
@@ -41,17 +18,12 @@ wav_file.setnchannels(1)
 wav_file.setsampwidth(2)  # Assuming 16-bit audio
 wav_file.setframerate(48000)
 
-def process_text(text):
-    print(f"Transcribed text: {text}")
-    transcriptions.append(text)
-
-async def udp_listener():
-    loop = asyncio.get_event_loop()
-    while True:
-        data, addr = await loop.run_in_executor(None, sock.recvfrom, 1024)
-        if data:
-            recorder.feed_audio(data)
-            wav_file.writeframes(data)  # Append audio data to WAV file
+@app.route('/send_audio', methods=['POST'])
+async def send_audio():
+    data = await request.data
+    recorder.feed_audio(data)
+    wav_file.writeframes(data)  # Append audio data to WAV file
+    return jsonify({"status": "success"})
 
 async def generate_transcriptions():
     while True:
@@ -64,9 +36,12 @@ async def generate_transcriptions():
 async def transcriptions_stream():
     return Response(generate_transcriptions(), content_type='text/event-stream')
 
+def process_text(text):
+    print(f"Transcribed text: {text}")
+    transcriptions.append(text)
+
 def cleanup():
     print("Cleaning up resources...")
-    sock.close()
     wav_file.close()  # Close the WAV file
     loop.stop()
     print("Server has been stopped and resources released.")
@@ -77,7 +52,6 @@ def handle_signal(signal, frame):
 if __name__ == "__main__":
     recorder.on_realtime_transcription_update = process_text
     loop = asyncio.get_event_loop()
-    loop.create_task(udp_listener())
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
