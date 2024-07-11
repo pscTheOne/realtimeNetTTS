@@ -8,7 +8,7 @@ from flask_socketio import SocketIO
 from RealtimeSTT import AudioToTextRecorder
 
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*",async_mode='eventlet')
 
 # Server IP and port for UDP listener
 SERVER_IP = '0.0.0.0'
