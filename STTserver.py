@@ -2,6 +2,7 @@ import socket
 import asyncio
 import signal
 import time
+from contextlib import suppress
 from flask import Flask
 from flask_socketio import SocketIO
 from RealtimeSTT import AudioToTextRecorder
