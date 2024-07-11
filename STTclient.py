@@ -1,7 +1,7 @@
 import pyaudio
 import webrtcvad
 import socket
-import websocket
+from websocket import WebSocketApp
 import threading
 import json
 from ip_settings import get_ip
@@ -39,10 +39,10 @@ def on_close(ws, close_status_code, close_msg):
 def on_open(ws):
     print("WebSocket connection opened")
 
-ws = websocket.WebSocketApp(WS_SERVER_URL,
-                            on_message=on_message,
-                            on_error=on_error,
-                            on_close=on_close)
+ws = WebSocketApp(WS_SERVER_URL,
+                  on_message=on_message,
+                  on_error=on_error,
+                  on_close=on_close)
 ws.on_open = on_open
 
 def run_ws():
