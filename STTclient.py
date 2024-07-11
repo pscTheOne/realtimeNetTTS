@@ -3,6 +3,7 @@ import webrtcvad
 import socket
 import threading
 import json
+import wave
 from sseclient import SSEClient
 from ip_settings import get_ip
 
@@ -24,6 +25,12 @@ vad.set_mode(1)  # 0: least aggressive, 3: most aggressive
 # Create a UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
+# Open a WAV file to append audio data
+wav_file = wave.open("recorded_audio.wav", 'wb')
+wav_file.setnchannels(CHANNELS)
+wav_file.setsampwidth(audio.get_sample_size(FORMAT))
+wav_file.setframerate(RATE)
+
 def send_audio_data(audio_data):
     sock.sendto(audio_data, (SERVER_IP, SERVER_PORT))
 
@@ -36,6 +43,7 @@ def receive_transcriptions():
 def callback(in_data, frame_count, time_info, status):
     if vad.is_speech(in_data, RATE):
         send_audio_data(in_data)
+        wav_file.writeframes(in_data)  # Append audio data to WAV file
     return (in_data, pyaudio.paContinue)
 
 stream = audio.open(format=FORMAT,
@@ -63,5 +71,5 @@ except KeyboardInterrupt:
 stream.stop_stream()
 stream.close()
 audio.terminate()
-
+wav_file.close()
 sock.close()
