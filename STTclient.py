@@ -4,6 +4,7 @@ import socket
 import websocket
 import threading
 import json
+from ip_settings import get_ip
 
 # Initialize PyAudio
 audio = pyaudio.PyAudio()
@@ -13,9 +14,9 @@ FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 48000  # Updated sample rate
 CHUNK = 960  # 20ms frames for 48000 Hz
-SERVER_IP = 'your_server_ip'
+SERVER_IP = get_ip()
 SERVER_PORT = 12345
-WS_SERVER_URL = 'ws://your_server_ip:5000/socket.io/'
+WS_SERVER_URL = 'ws://' + get_ip() + ':5000/socket.io/'
 
 # Initialize WebRTC VAD
 vad = webrtcvad.Vad()
