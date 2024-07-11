@@ -6,6 +6,7 @@ import json
 import wave
 import requests
 import asyncio
+import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 from sseclient import SSEClient
 from ip_settings import get_ip
@@ -19,6 +20,7 @@ CHANNELS = 1
 RATE = 48000  # Updated sample rate
 CHUNK = 960  # 20ms frames for 48000 Hz
 BATCH_SIZE = 5  # Number of chunks to batch together
+GAIN = 2.0  # Gain factor to amplify the audio
 SERVER_IP = get_ip()
 SERVER_PORT = 5000
 
@@ -34,6 +36,11 @@ wav_file.setframerate(RATE)
 
 audio_buffer = []
 executor = ThreadPoolExecutor(max_workers=1)
+
+def amplify_audio(audio_data, gain):
+    audio_array = np.frombuffer(audio_data, dtype=np.int16)
+    audio_array = np.clip(audio_array * gain, -32768, 32767)
+    return audio_array.astype(np.int16).tobytes()
 
 def send_audio_data(audio_data):
     url = f'http://{SERVER_IP}:{SERVER_PORT}/send_audio'
@@ -59,8 +66,9 @@ def receive_transcriptions():
 
 def callback(in_data, frame_count, time_info, status):
     if vad.is_speech(in_data, RATE):
-        audio_buffer.append(in_data)
-        wav_file.writeframes(in_data)  # Append audio data to WAV file
+        amplified_data = amplify_audio(in_data, GAIN)
+        audio_buffer.append(amplified_data)
+        wav_file.writeframes(amplified_data)  # Append audio data to WAV file
     return (in_data, pyaudio.paContinue)
 
 stream = audio.open(format=FORMAT,
