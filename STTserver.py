@@ -2,11 +2,15 @@ import socket
 import asyncio
 import signal
 from contextlib import suppress
-from quart import Quart, request, jsonify
+from quart import Quart, request, Response, jsonify
 from RealtimeSTT import AudioToTextRecorder
 import wave
+import logging
 
 app = Quart(__name__)
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
 # Initialize AudioToTextRecorder with microphone usage disabled
 recorder = AudioToTextRecorder(use_microphone=False)
@@ -20,10 +24,14 @@ wav_file.setframerate(48000)
 
 @app.route('/send_audio', methods=['POST'])
 async def send_audio():
-    data = await request.data
-    recorder.feed_audio(data)
-    wav_file.writeframes(data)  # Append audio data to WAV file
-    return jsonify({"status": "success"})
+    try:
+        data = await request.data
+        recorder.feed_audio(data)
+        wav_file.writeframes(data)  # Append audio data to WAV file
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logging.error(f"Error in send_audio: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 async def generate_transcriptions():
     while True:
@@ -34,17 +42,22 @@ async def generate_transcriptions():
 
 @app.route('/transcriptions')
 async def transcriptions_stream():
-    return Response(generate_transcriptions(), content_type='text/event-stream')
+    try:
+        return Response(generate_transcriptions(), content_type='text/event-stream')
+    except Exception as e:
+        logging.error(f"Error in transcriptions_stream: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 def process_text(text):
-    print(f"Transcribed text: {text}")
+    logging.info(f"Transcribed text: {text}")
     transcriptions.append(text)
 
 def cleanup():
-    print("Cleaning up resources...")
+    logging.info("Cleaning up resources...")
+    sock.close()
     wav_file.close()  # Close the WAV file
     loop.stop()
-    print("Server has been stopped and resources released.")
+    logging.info("Server has been stopped and resources released.")
 
 def handle_signal(signal, frame):
     asyncio.run_coroutine_threadsafe(cleanup(), loop)
