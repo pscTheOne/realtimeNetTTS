@@ -2,12 +2,10 @@ import socket
 import asyncio
 import signal
 from contextlib import suppress
-from flask import Flask, Response
-from flask_socketio import SocketIO
+from quart import Quart, Response, jsonify
 from RealtimeSTT import AudioToTextRecorder
 
-app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
+app = Quart(__name__)
 
 # Server IP and port for UDP listener
 SERVER_IP = '0.0.0.0'
@@ -41,8 +39,9 @@ def process_text(text):
     transcriptions.append(text)
 
 async def udp_listener():
+    loop = asyncio.get_event_loop()
     while True:
-        data, addr = sock.recvfrom(1024)
+        data, addr = await loop.run_in_executor(None, sock.recvfrom, 1024)
         if data:
             recorder.feed_audio(data)
 
@@ -54,11 +53,8 @@ async def generate_transcriptions():
         await asyncio.sleep(1)
 
 @app.route('/transcriptions')
-def transcriptions_stream():
-    async def stream():
-        async for transcription in generate_transcriptions():
-            yield transcription
-    return Response(stream(), mimetype='text/event-stream')
+async def transcriptions_stream():
+    return Response(generate_transcriptions(), content_type='text/event-stream')
 
 def cleanup():
     print("Cleaning up resources...")
@@ -78,7 +74,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, handle_signal)
 
     try:
-        socketio.run(app, debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+        app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
         loop.run_forever()
     except KeyboardInterrupt:
         pass
