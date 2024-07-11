@@ -15,7 +15,7 @@ CHANNELS = 1
 RATE = 48000
 CHUNK = 960
 SERVER_IP = get_ip()
-SERVER_PORT = 12345
+SERVER_PORT = 12346  # Changed port
 API_URL = f'http://{SERVER_IP}:5000/get_transcription'
 
 # Initialize WebRTC VAD
