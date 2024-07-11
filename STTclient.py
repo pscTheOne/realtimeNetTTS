@@ -16,7 +16,7 @@ RATE = 48000  # Updated sample rate
 CHUNK = 960  # 20ms frames for 48000 Hz
 SERVER_IP = get_ip()
 SERVER_PORT = 12345
-WS_SERVER_URL = 'ws://' + get_ip() + ':5000/socket.io/'
+WS_SERVER_URL = 'ws://' + get_ip() + ':5000/socket.io/?transport=websocket'
 
 # Initialize WebRTC VAD
 vad = webrtcvad.Vad()
@@ -33,8 +33,8 @@ def on_message(ws, message):
 def on_error(ws, error):
     print(f"WebSocket error: {error}")
 
-def on_close(ws):
-    print("WebSocket connection closed")
+def on_close(ws, close_status_code, close_msg):
+    print(f"WebSocket connection closed: {close_status_code}, {close_msg}")
 
 def on_open(ws):
     print("WebSocket connection opened")
