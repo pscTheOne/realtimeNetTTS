@@ -2,8 +2,9 @@ import socket
 import asyncio
 import signal
 from contextlib import suppress
-from quart import Quart, Response, jsonify
+from quart import Quart, Response
 from RealtimeSTT import AudioToTextRecorder
+import wave
 
 app = Quart(__name__)
 
@@ -34,6 +35,12 @@ def bind_socket(sock, address, port, retries=5, delay=5):
 
 bind_socket(sock, SERVER_IP, SERVER_PORT)
 
+# Open a WAV file to append audio data
+wav_file = wave.open("received_audio.wav", 'wb')
+wav_file.setnchannels(1)
+wav_file.setsampwidth(2)  # Assuming 16-bit audio
+wav_file.setframerate(48000)
+
 def process_text(text):
     print(f"Transcribed text: {text}")
     transcriptions.append(text)
@@ -44,6 +51,7 @@ async def udp_listener():
         data, addr = await loop.run_in_executor(None, sock.recvfrom, 1024)
         if data:
             recorder.feed_audio(data)
+            wav_file.writeframes(data)  # Append audio data to WAV file
 
 async def generate_transcriptions():
     while True:
@@ -59,6 +67,7 @@ async def transcriptions_stream():
 def cleanup():
     print("Cleaning up resources...")
     sock.close()
+    wav_file.close()  # Close the WAV file
     loop.stop()
     print("Server has been stopped and resources released.")
 
