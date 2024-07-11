@@ -1,8 +1,9 @@
 import pyaudio
 import webrtcvad
+import socket
 import requests
 import threading
-from sseclient import SSEClient
+import time
 from ip_settings import get_ip
 
 # Initialize PyAudio
@@ -14,26 +15,32 @@ CHANNELS = 1
 RATE = 48000
 CHUNK = 960
 SERVER_IP = get_ip()
-SERVER_PORT = 5000
+SERVER_PORT = 12345
+API_URL = f'http://{SERVER_IP}:5000/get_transcription'
 
 # Initialize WebRTC VAD
 vad = webrtcvad.Vad()
 vad.set_mode(1)
 
-def send_audio_data(audio_data):
-    requests.post(f'http://{SERVER_IP}:{SERVER_PORT}/send_audio', data=audio_data)
+# Create a UDP socket
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-def receive_transcriptions():
-    url = f'http://{SERVER_IP}:{SERVER_PORT}/transcriptions'
-    messages = SSEClient(url)
-    for msg in messages:
-        print(f"Transcription: {msg.data}")
+def send_audio_data(audio_data):
+    sock.sendto(audio_data, (SERVER_IP, SERVER_PORT))
+
+def get_transcription():
+    response = requests.get(API_URL)
+    if response.status_code == 200:
+        transcription = response.json().get('transcription')
+        if transcription:
+            print(f"Transcription: {transcription}")
 
 def callback(in_data, frame_count, time_info, status):
     if vad.is_speech(in_data, RATE):
         send_audio_data(in_data)
     return (in_data, pyaudio.paContinue)
 
+# Open audio stream
 stream = audio.open(format=FORMAT,
                     channels=CHANNELS,
                     rate=RATE,
@@ -41,11 +48,13 @@ stream = audio.open(format=FORMAT,
                     frames_per_buffer=CHUNK,
                     stream_callback=callback)
 
-def start_sse_client():
-    receive_transcriptions()
+def polling_transcription():
+    while True:
+        get_transcription()
+        time.sleep(1)
 
-sse_thread = threading.Thread(target=start_sse_client)
-sse_thread.start()
+polling_thread = threading.Thread(target=polling_transcription)
+polling_thread.start()
 
 print("Listening...")
 stream.start_stream()
@@ -59,3 +68,4 @@ except KeyboardInterrupt:
 stream.stop_stream()
 stream.close()
 audio.terminate()
+sock.close()
