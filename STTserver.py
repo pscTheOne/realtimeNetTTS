@@ -9,6 +9,7 @@ transcriptions = []
 @app.route('/send_audio', methods=['POST'])
 def send_audio():
     audio_data = request.data
+    print("received!\n")
     recorder.feed_audio(audio_data)
     return "Success", 200
 
