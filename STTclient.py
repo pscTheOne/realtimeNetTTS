@@ -39,7 +39,8 @@ def receive_transcriptions():
         logging.info(f"Transcription: {msg.data}")
 
 def callback(in_data, frame_count, time_info, status):
-    if vad.is_speech(in_data, RATE):
+    if True
+    #vad.is_speech(in_data, RATE):
         with data_lock:
             audio_data.append(in_data)
         wav_file.writeframes(in_data)  # Append audio data to WAV file
