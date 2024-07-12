@@ -5,6 +5,7 @@ import wave
 import requests
 from sseclient import SSEClient
 from ip_settings import get_ip
+import time
 
 # Initialize PyAudio
 audio = pyaudio.PyAudio()
@@ -63,6 +64,7 @@ def send_audio_stream():
         if chunk:  # Only send if there is data in the chunk
             try:
                 requests.post(url, headers=headers, data=chunk)
+                time.sleep(0.02)  # Control the sending rate
             except Exception as e:
                 print(f"Error sending audio data: {e}")
 
