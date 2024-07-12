@@ -1,9 +1,9 @@
 import pyaudio
 import webrtcvad
-import socket
 import threading
 import json
 import wave
+import requests
 from sseclient import SSEClient
 from ip_settings import get_ip
 
@@ -16,7 +16,6 @@ CHANNELS = 1
 RATE = 48000  # Updated sample rate
 CHUNK = 960  # 20ms frames for 48000 Hz
 SERVER_IP = get_ip()
-TCP_PORT = 12345
 HTTP_PORT = 5000
 
 # Initialize WebRTC VAD
@@ -37,7 +36,7 @@ def receive_transcriptions():
 
 def callback(in_data, frame_count, time_info, status):
     if vad.is_speech(in_data, RATE):
-        tcp_client.sendall(in_data)
+        audio_data.append(in_data)
         wav_file.writeframes(in_data)  # Append audio data to WAV file
     return (in_data, pyaudio.paContinue)
 
@@ -47,9 +46,24 @@ def start_sse_client():
 sse_thread = threading.Thread(target=start_sse_client)
 sse_thread.start()
 
-# Establish a persistent TCP connection
-tcp_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-tcp_client.connect((SERVER_IP, TCP_PORT))
+# Buffer to store audio data before sending
+audio_data = []
+
+# Function to send audio data to the server
+def send_audio_stream():
+    url = f'http://{SERVER_IP}:{HTTP_PORT}/send_audio'
+    headers = {'Content-Type': 'application/octet-stream'}
+    while True:
+        if audio_data:
+            chunk = audio_data.pop(0)
+            try:
+                requests.post(url, headers=headers, data=chunk)
+            except Exception as e:
+                print(f"Error sending audio data: {e}")
+
+# Start the audio streaming thread
+audio_stream_thread = threading.Thread(target=send_audio_stream)
+audio_stream_thread.start()
 
 stream = audio.open(format=FORMAT,
                     channels=CHANNELS,
@@ -71,4 +85,3 @@ stream.stop_stream()
 stream.close()
 audio.terminate()
 wav_file.close()
-tcp_client.close()
