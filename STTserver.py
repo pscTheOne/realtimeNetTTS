@@ -11,7 +11,7 @@ app = Quart(__name__)
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
-# Initialize AudioToTextRecorder with microphone usage disabled and increased queue size
+# Initialize AudioToTextRecorder with microphone usage disabled
 recorder = AudioToTextRecorder(use_microphone=False)
 transcriptions = []
 

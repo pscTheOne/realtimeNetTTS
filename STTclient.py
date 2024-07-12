@@ -64,7 +64,7 @@ def send_audio_stream():
         if chunk:  # Only send if there is data in the chunk
             try:
                 requests.post(url, headers=headers, data=chunk)
-                time.sleep(0.02)  # Control the sending rate
+                time.sleep(0.05)  # Adjust the sending rate to avoid overloading the server
             except Exception as e:
                 print(f"Error sending audio data: {e}")
 
