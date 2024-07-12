@@ -1,7 +1,7 @@
 import asyncio
 import signal
 from contextlib import suppress
-from quart import Quart, Response, jsonify
+from quart import Quart, request, Response, jsonify
 from RealtimeSTT import AudioToTextRecorder
 import wave
 import logging
@@ -20,6 +20,17 @@ wav_file = wave.open("received_audio.wav", 'wb')
 wav_file.setnchannels(1)
 wav_file.setsampwidth(2)  # Assuming 16-bit audio
 wav_file.setframerate(48000)
+
+@app.route('/send_audio', methods=['POST'])
+async def send_audio():
+    try:
+        data = await request.data
+        recorder.feed_audio(data)
+        wav_file.writeframes(data)  # Append audio data to WAV file
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logging.error(f"Error in send_audio: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/transcriptions')
 async def transcriptions_stream():
@@ -40,25 +51,6 @@ def process_text(text):
     logging.info(f"Transcribed text: {text}")
     transcriptions.append(text)
 
-async def handle_client(reader, writer):
-    try:
-        while True:
-            data = await reader.read(1024)
-            if not data:
-                break
-            recorder.feed_audio(data)
-            wav_file.writeframes(data)  # Append audio data to WAV file
-    except Exception as e:
-        logging.error(f"Error in handle_client: {e}")
-    finally:
-        writer.close()
-        await writer.wait_closed()
-
-async def tcp_server():
-    server = await asyncio.start_server(handle_client, '0.0.0.0', 12345)
-    async with server:
-        await server.serve_forever()
-
 def cleanup():
     logging.info("Cleaning up resources...")
     wav_file.close()  # Close the WAV file
@@ -71,7 +63,6 @@ def handle_signal(signal, frame):
 if __name__ == "__main__":
     recorder.on_realtime_transcription_update = process_text
     loop = asyncio.get_event_loop()
-    loop.create_task(tcp_server())
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
