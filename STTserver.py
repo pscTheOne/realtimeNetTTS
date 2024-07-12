@@ -93,7 +93,7 @@ def handle_signal(signal, frame):
     asyncio.run_coroutine_threadsafe(cleanup(), loop)
 
 if __name__ == "__main__":
-    recorder.on_realtime_transcription_update = process_text
+    #recorder.on_realtime_transcription_update = process_text
     recorder_thread = threading.Thread(target=recorder_thread)
     recorder_thread.start()
     recorder_ready.wait()
