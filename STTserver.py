@@ -14,6 +14,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 # Initialize AudioToTextRecorder with microphone usage disabled
 recorder = AudioToTextRecorder(use_microphone=False)
+recorder.enable_realtime_transcription = True
 transcriptions = []
 
 # Open a WAV file to append audio data
