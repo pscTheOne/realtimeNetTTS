@@ -55,11 +55,12 @@ def send_audio_stream():
     url = f'http://{SERVER_IP}:{HTTP_PORT}/send_audio'
     headers = {'Content-Type': 'application/octet-stream'}
     while True:
+        chunk = b''  # Initialize chunk variable
         with data_lock:
             if audio_data:
                 chunk = b''.join(audio_data)
                 audio_data.clear()
-        if chunk:
+        if chunk:  # Only send if there is data in the chunk
             try:
                 requests.post(url, headers=headers, data=chunk)
             except Exception as e:
