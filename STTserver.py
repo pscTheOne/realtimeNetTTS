@@ -12,7 +12,7 @@ app = Quart(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 # Initialize AudioToTextRecorder with microphone usage disabled and increased queue size
-recorder = AudioToTextRecorder(use_microphone=False, max_queue_size=50)
+recorder = AudioToTextRecorder(use_microphone=False)
 transcriptions = []
 
 # Open a WAV file to append audio data
