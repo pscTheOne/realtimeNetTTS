@@ -11,11 +11,31 @@ app = Quart(__name__)
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
+recorder_ready = threading.Event()
+recorder_config = {
+    'spinner': False,
+    'use_microphone': False,
+    'model': "tiny.en",
+    'language': 'en',
+    'silero_sensitivity': 0.4,
+    'webrtc_sensitivity': 2,
+    'post_speech_silence_duration': 0.7,
+    'min_length_of_recording': 0,
+    'min_gap_between_recordings': 0
+}
 
-# Initialize AudioToTextRecorder with microphone usage disabled
-recorder = AudioToTextRecorder(use_microphone=False)
-recorder.enable_realtime_transcription = True
 transcriptions = []
+
+def recorder_thread():
+    global recorder
+    print("Initializing RealtimeSTT...")
+    recorder = AudioToTextRecorder(**recorder_config,level=logging.DEBUG)
+    print("RealtimeSTT initialized")
+    recorder_ready.set()
+    while True:
+        full_sentence = recorder.text()
+        if full_sentence:
+            print(f"\rSentence: {full_sentence}")
 
 # Open a WAV file to append audio data
 wav_file = wave.open("received_audio.wav", 'wb')
@@ -72,6 +92,9 @@ def handle_signal(signal, frame):
 
 if __name__ == "__main__":
     recorder.on_realtime_transcription_update = process_text
+    recorder_thread = threading.Thread(target=recorder_thread)
+    recorder_thread.start()
+    recorder_ready.wait()
     loop = asyncio.get_event_loop()
 
     signal.signal(signal.SIGINT, handle_signal)
