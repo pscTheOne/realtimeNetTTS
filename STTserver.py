@@ -83,7 +83,7 @@ def handle_signal(signal, frame):
 
 if __name__ == "__main__":
     print("Initializing RealtimeSTT...")
-    recorder = AudioToTextRecorder(**recorder_config,level=logging.INFO)
+    recorder = AudioToTextRecorder(**recorder_config,level=logging.)
     print("RealtimeSTT initialized")
     recorder.on_realtime_transcription_update = process_text
     #recorder_thread = threading.Thread(target=recorder_thread)
