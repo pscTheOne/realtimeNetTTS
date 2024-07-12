@@ -12,7 +12,8 @@ app = Quart(__name__)
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
-
+recorder_ready = threading.Event()
+recorder = None
 recorder_config = {
     'spinner': False,
     'use_microphone': False,
@@ -27,6 +28,17 @@ recorder_config = {
 
 transcriptions = []
 
+def recorder_thread():
+    global recorder
+    print("Initializing RealtimeSTT...")
+    recorder = AudioToTextRecorder(**recorder_config,level=logging.DEBUG)
+    print("RealtimeSTT initialized")
+    recorder_ready.set()
+    while True:
+        full_sentence = recorder.text()
+        if full_sentence:
+            print(f"\rSentence: {full_sentence}")
+            process_text(full_sentence)
 
 # Open a WAV file to append audio data
 wav_file = wave.open("received_audio.wav", 'wb')
@@ -82,13 +94,10 @@ def handle_signal(signal, frame):
     asyncio.run_coroutine_threadsafe(cleanup(), loop)
 
 if __name__ == "__main__":
-    print("Initializing RealtimeSTT...")
-    recorder = AudioToTextRecorder(**recorder_config,level=logging.DEBUG)
-    print("RealtimeSTT initialized")
-    recorder.on_realtime_transcription_update = process_text
-    #recorder_thread = threading.Thread(target=recorder_thread)
-    #recorder_thread.start()
-    #recorder_ready.wait()
+    #recorder.on_realtime_transcription_update = process_text
+    recorder_thread = threading.Thread(target=recorder_thread)
+    recorder_thread.start()
+    recorder_ready.wait()
     loop = asyncio.get_event_loop()
 
     signal.signal(signal.SIGINT, handle_signal)
