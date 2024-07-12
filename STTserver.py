@@ -64,6 +64,7 @@ def handle_signal(signal, frame):
     asyncio.run_coroutine_threadsafe(cleanup(), loop)
 
 if __name__ == "__main__":
+    recorder.enable_realtime_transcription = True
     recorder.on_realtime_transcription_update = process_text
     loop = asyncio.get_event_loop()
 
