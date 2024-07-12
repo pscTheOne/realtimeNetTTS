@@ -14,6 +14,7 @@ app = Quart(__name__)
 logging.basicConfig(level=logging.DEBUG)
 recorder_ready = threading.Event()
 recorder_config = {
+recorder = None
     'spinner': False,
     'use_microphone': False,
     'model': "tiny.en",
