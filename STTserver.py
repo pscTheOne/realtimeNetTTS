@@ -6,6 +6,7 @@ from RealtimeSTT import AudioToTextRecorder
 import wave
 import logging
 import os
+import threading
 
 app = Quart(__name__)
 
