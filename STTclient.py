@@ -1,7 +1,6 @@
 import pyaudio
 import webrtcvad
 import threading
-import json
 import wave
 import requests
 from sseclient import SSEClient
@@ -36,7 +35,8 @@ def receive_transcriptions():
 
 def callback(in_data, frame_count, time_info, status):
     if vad.is_speech(in_data, RATE):
-        audio_data.append(in_data)
+        with data_lock:
+            audio_data.append(in_data)
         wav_file.writeframes(in_data)  # Append audio data to WAV file
     return (in_data, pyaudio.paContinue)
 
@@ -57,11 +57,13 @@ def send_audio_stream():
     while True:
         with data_lock:
             if audio_data:
-                chunk = audio_data.pop(0)
-                try:
-                    requests.post(url, headers=headers, data=chunk)
-                except Exception as e:
-                    print(f"Error sending audio data: {e}")
+                chunk = b''.join(audio_data)
+                audio_data.clear()
+        if chunk:
+            try:
+                requests.post(url, headers=headers, data=chunk)
+            except Exception as e:
+                print(f"Error sending audio data: {e}")
 
 # Start the audio streaming thread
 audio_stream_thread = threading.Thread(target=send_audio_stream, daemon=True)
