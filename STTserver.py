@@ -5,6 +5,7 @@ from quart import Quart, request, Response, jsonify
 from RealtimeSTT import AudioToTextRecorder
 import wave
 import logging
+import os
 
 app = Quart(__name__)
 
@@ -27,6 +28,7 @@ async def send_audio():
         data = await request.data
         recorder.feed_audio(data)
         wav_file.writeframes(data)  # Append audio data to WAV file
+        logging.debug("Audio data received and processed.")
         return jsonify({"status": "success"})
     except Exception as e:
         logging.error(f"Error in send_audio: {e}")
@@ -53,11 +55,18 @@ def process_text(text):
 
 def cleanup():
     logging.info("Cleaning up resources...")
-    wav_file.close()  # Close the WAV file
-    loop.stop()
+    try:
+        wav_file.close()  # Close the WAV file
+    except Exception as e:
+        logging.error(f"Error closing WAV file: {e}")
+    try:
+        loop.stop()
+    except Exception as e:
+        logging.error(f"Error stopping loop: {e}")
     logging.info("Server has been stopped and resources released.")
 
 def handle_signal(signal, frame):
+    logging.info(f"Received signal: {signal}. Cleaning up...")
     asyncio.run_coroutine_threadsafe(cleanup(), loop)
 
 if __name__ == "__main__":
@@ -71,7 +80,7 @@ if __name__ == "__main__":
         app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
         loop.run_forever()
     except KeyboardInterrupt:
-        pass
+        logging.info("KeyboardInterrupt received. Cleaning up...")
     finally:
         pending = asyncio.all_tasks(loop)
         for task in pending:

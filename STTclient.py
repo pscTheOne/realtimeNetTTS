@@ -6,6 +6,10 @@ import requests
 from sseclient import SSEClient
 from ip_settings import get_ip
 import time
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
 # Initialize PyAudio
 audio = pyaudio.PyAudio()
@@ -32,7 +36,7 @@ def receive_transcriptions():
     url = f'http://{SERVER_IP}:{HTTP_PORT}/transcriptions'
     messages = SSEClient(url)
     for msg in messages:
-        print(f"Transcription: {msg.data}")
+        logging.info(f"Transcription: {msg.data}")
 
 def callback(in_data, frame_count, time_info, status):
     if vad.is_speech(in_data, RATE):
@@ -63,10 +67,12 @@ def send_audio_stream():
                 audio_data.clear()
         if chunk:  # Only send if there is data in the chunk
             try:
-                requests.post(url, headers=headers, data=chunk)
+                response = requests.post(url, headers=headers, data=chunk)
+                response.raise_for_status()  # Raise an error for bad responses
+                logging.debug("Audio data sent successfully.")
                 time.sleep(0.05)  # Adjust the sending rate to avoid overloading the server
             except Exception as e:
-                print(f"Error sending audio data: {e}")
+                logging.error(f"Error sending audio data: {e}")
 
 # Start the audio streaming thread
 audio_stream_thread = threading.Thread(target=send_audio_stream, daemon=True)
@@ -79,14 +85,14 @@ stream = audio.open(format=FORMAT,
                     frames_per_buffer=CHUNK,
                     stream_callback=callback)
 
-print("Listening...")
+logging.info("Listening...")
 stream.start_stream()
 
 try:
     while True:
         pass
 except KeyboardInterrupt:
-    print("Stopping...")
+    logging.info("Stopping...")
 
 stream.stop_stream()
 stream.close()
