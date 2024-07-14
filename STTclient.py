@@ -11,7 +11,7 @@ import numpy as np
 from scipy.signal import resample
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 # Initialize PyAudio
 audio = pyaudio.PyAudio()

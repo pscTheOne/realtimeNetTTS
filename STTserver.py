@@ -31,7 +31,7 @@ transcriptions = []
 def recorder_thread():
     global recorder
     print("Initializing RealtimeSTT...")
-    recorder = AudioToTextRecorder(**recorder_config,level=logging.DEBUG)
+    recorder = AudioToTextRecorder(**recorder_config,level=logging.INFO)
     print("RealtimeSTT initialized")
     recorder_ready.set()
     while True:
