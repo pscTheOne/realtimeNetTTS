@@ -42,8 +42,7 @@ def receive_transcriptions():
         logging.info(f"Transcription: {msg.data}")
 
 def callback(in_data, frame_count, time_info, status):
-    if True:
-    #vad.is_speech(in_data, RATE):
+    if vad.is_speech(in_data, RATE):
         with data_lock:
             audio_data.append(in_data)
         resampled_data = resample_audio(np.frombuffer(in_data, dtype=np.int16))
