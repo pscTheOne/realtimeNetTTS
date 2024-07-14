@@ -7,6 +7,8 @@ from sseclient import SSEClient
 from ip_settings import get_ip
 import time
 import logging
+import numpy as np
+from scipy.signal import resample
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -17,7 +19,8 @@ audio = pyaudio.PyAudio()
 # Parameters for audio stream
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
-RATE = 48000  # Updated sample rate
+RATE = 48000  # Original sample rate
+NEW_RATE = 16000  # New sample rate for uploading and saving
 CHUNK = 960  # 20ms frames for 48000 Hz
 SERVER_IP = get_ip()
 HTTP_PORT = 5000
@@ -30,7 +33,7 @@ vad.set_mode(1)  # 0: least aggressive, 3: most aggressive
 wav_file = wave.open("recorded_audio.wav", 'wb')
 wav_file.setnchannels(CHANNELS)
 wav_file.setsampwidth(audio.get_sample_size(FORMAT))
-wav_file.setframerate(RATE)
+wav_file.setframerate(NEW_RATE)
 
 def receive_transcriptions():
     url = f'http://{SERVER_IP}:{HTTP_PORT}/transcriptions'
@@ -43,7 +46,8 @@ def callback(in_data, frame_count, time_info, status):
     #vad.is_speech(in_data, RATE):
         with data_lock:
             audio_data.append(in_data)
-        wav_file.writeframes(in_data)  # Append audio data to WAV file
+        resampled_data = resample_audio(np.frombuffer(in_data, dtype=np.int16))
+        wav_file.writeframes(resampled_data.tobytes())  # Append resampled audio data to WAV file
     return (in_data, pyaudio.paContinue)
 
 def start_sse_client():
@@ -56,6 +60,12 @@ sse_thread.start()
 audio_data = []
 data_lock = threading.Lock()
 
+# Function to resample audio data
+def resample_audio(data):
+    number_of_samples = round(len(data) * float(NEW_RATE) / RATE)
+    resampled_data = resample(data, number_of_samples)
+    return resampled_data.astype(np.int16)
+
 # Function to send audio data to the server
 def send_audio_stream():
     url = f'http://{SERVER_IP}:{HTTP_PORT}/send_audio'
@@ -64,8 +74,9 @@ def send_audio_stream():
         chunk = b''  # Initialize chunk variable
         with data_lock:
             if audio_data:
-                chunk = b''.join(audio_data)
+                audio_chunk = b''.join(audio_data)
                 audio_data.clear()
+                chunk = resample_audio(np.frombuffer(audio_chunk, dtype=np.int16)).tobytes()
         if chunk:  # Only send if there is data in the chunk
             try:
                 response = requests.post(url, headers=headers, data=chunk)

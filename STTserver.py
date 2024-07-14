@@ -17,13 +17,13 @@ recorder = None
 recorder_config = {
     'spinner': False,
     'use_microphone': False,
-    'model': "tiny.en",
+    'model': "base.en",
     'language': 'en',
     'silero_sensitivity': 0.4,
     'webrtc_sensitivity': 2,
-    'post_speech_silence_duration': 0.7,
-    'min_length_of_recording': 0,
-    'min_gap_between_recordings': 0
+    #'post_speech_silence_duration': 0.7,
+    #'min_length_of_recording': 0,
+    #'min_gap_between_recordings': 0
 }
 
 transcriptions = []
